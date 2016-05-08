@@ -109,18 +109,25 @@ class SmsLogger(object):
 
                     source_connector = headers['source_connector'] \
                         if 'source_connector' in headers else None
+                    if not source_connector:
+                        logger.warning(u'empty source_connector in message %s' % (props['message-id'], ))
 
                     short_message = pdu.params['short_message'] \
                         if 'short_message' in pdu.params else None
+                    if not short_message:
+                        logger.warning(u'empty short_message in message %s' % (props['message-id'], ))
 
                     pdu_count, short_message = get_multipart_message(pdu, short_message)
 
-                    submit_sm_bill = pickle.loads(headers['submit_sm_bill']) \
-                        if 'submit_sm_bill' in headers else None
+                    submit_sm_resp_bill = pickle.loads(headers['submit_sm_resp_bill']) \
+                        if 'submit_sm_resp_bill' in headers else None
+                    if not submit_sm_resp_bill:
+                        logger.warning(u'empty submit_sm_resp_bill in message %s' % (props['message-id'], ))
+
                     rate, uid = 0, None
-                    if submit_sm_bill:
-                        rate = submit_sm_bill.getTotalAmounts() * pdu_count
-                        uid = submit_sm_bill.user.uid
+                    if submit_sm_resp_bill:
+                        rate = submit_sm_resp_bill.getTotalAmounts() * pdu_count
+                        uid = submit_sm_resp_bill.user.uid
 
                     # Преобразуем сообщение
                     if 'data_coding' in pdu.params \
@@ -132,9 +139,13 @@ class SmsLogger(object):
 
                     source_addr = pdu.params['source_addr'] \
                         if 'source_addr' in pdu.params else None
+                    if not source_addr:
+                        logger.warning(u'empty source_addr in message %s' % (props['message-id'], ))
 
                     destination_addr = pdu.params['destination_addr'] \
                         if 'destination_addr' in pdu.params else None
+                    if not destination_addr:
+                        logger.warning(u'empty destination_addr in message %s' % (props['message-id'], ))
 
                     # Создаем новую запись
                     sql = 'SELECT public.add_sms (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s);'
