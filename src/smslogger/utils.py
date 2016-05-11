@@ -34,7 +34,7 @@ def utc_to_local(utc_time_str):
     diff_hours = time.localtime()[hours] - time.gmtime()[hours]
     utc_time = try_parsing_date(utc_time_str)
     local_time = utc_time + timedelta(hours=diff_hours)
-    return format(local_time, settings.FORMAT_TIMES[0])
+    return local_time
 
 
 def get_multipart_message(pdu, short_message):
