@@ -1,28 +1,30 @@
 # -*- coding: utf-8 -*-
 import pickle
-import psycopg2
 
+import datetime
+import txamqp.spec
+import txamqp
 from twisted.internet.defer import inlineCallbacks
 from twisted.internet import reactor
 from twisted.internet.protocol import ClientCreator
 
 from txamqp.protocol import AMQClient
 from txamqp.client import TwistedDelegate
+
 from txamqp.queue import Closed
 
-from psycopg2 import Error
-
 from smslogger import settings
+from smslogger.sms_buffer import BufferManager
 from smslogger.utils import get_multipart_message, decode_message, utc_to_local
 from smslogger.app_logger import logger
 
 
 class SmsLogger(object):
 
-    def __init__(self, amqp_conn, pg_conn, spec):
-        self.amqp_conn = amqp_conn
-        self.pg_conn = pg_conn
-        self.spec = spec
+    def __init__(self):
+        self.amqp_conn = settings.AMQP_CONNECTION
+        self.spec = txamqp.spec.load(settings.AMQP_SPECIFICATION)
+        self.buffer = BufferManager()
 
     def start(self):
         vhost = self.amqp_conn['vhost']
@@ -68,9 +70,6 @@ class SmsLogger(object):
         yield chan.basic_consume(queue=queue_name, no_ack=False, consumer_tag=queue_tag)
         queue = yield conn.queue(queue_tag)
 
-        dbconn = psycopg2.connect(self.pg_conn)
-        cursor = dbconn.cursor()
-
         # Ожидаем сообщения
         while True:
             try:
@@ -82,12 +81,10 @@ class SmsLogger(object):
             props = msg.content.properties
 
             if msg.routing_key[:12] == 'dlr_thrower.':
-                sql = 'UPDATE public.sms_sms SET delivery_time=current_timestamp WHERE message_id=%s'
                 message_id = msg.content.body
-                data = (message_id,)
                 try:
-                    cursor.execute(sql, data)
-                except Error as e:
+                    self.buffer.delivery(message_id)
+                except Exception as e:
                     logger.error(u'Exception in update delivery time, %s %s' % (msg.routing_key, e,))
             else:
                 try:
@@ -148,40 +145,39 @@ class SmsLogger(object):
                         logger.warning(u'empty destination_addr in message %s' % (props['message-id'], ))
 
                     # Создаем новую запись
-                    sql = 'SELECT public.add_sms (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s);'
-                    data = (props['message-id'],
-                            short_message,
-                            source_connector,
-                            routed_cid,
-                            rate,
-                            uid,
-                            source_addr,
-                            destination_addr,
-                            pdu_count,
-                            str(pdu.status),
-                            create_time)
                     try:
-                        cursor.execute(sql, data)
-                    except Error as e:
+                        source_id = self.buffer.get_source(source_addr)
+                        operator_id = self.buffer.get_operator(routed_cid)
+
+                        self.buffer.submit(props['message-id'], {
+                            'message_id': props['message-id'],
+                            'message': short_message,
+                            'source_connector': source_connector,
+                            'routed_cid': routed_cid,
+                            'rate': rate,
+                            'uid': uid,
+                            'destination': destination_addr,
+                            'pdu_count': pdu_count,
+                            'status': str(pdu.status),
+                            'create_time': create_time,
+                            'submit_time': datetime.datetime.now(),
+                            'submit_response_time': None,
+                            'delivery_time': None,
+                            'operator_id': operator_id,
+                            'source_id': source_id
+                        })
+                    except Exception as e:
                         logger.error(u'Exception in create new sms, %s %s' % (msg.routing_key, e,))
 
                 elif msg.routing_key[:15] == 'submit.sm.resp.':
-                    # Обновляем время ответа
-                    sql = 'UPDATE public.sms_sms SET submit_response_time=current_timestamp WHERE message_id=%s'
-                    data = (props['message-id'],)
                     try:
-                        cursor.execute(sql, data)
-                    except Error as e:
+                        self.buffer.submit_resp(props['message-id'])
+                    except Exception as e:
                         logger.error(u'Exception in update submit response time, %s %s' % (msg.routing_key, e,))
                 else:
                     logger.error(u'unknown route: %s' % (msg.routing_key,))
 
-            dbconn.commit()
-
             chan.basic_ack(delivery_tag=msg.delivery_tag)
-
-        cursor.close()
-        dbconn.close()
 
         if reactor.running:
             reactor.stop()

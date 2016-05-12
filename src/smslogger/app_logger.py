@@ -1,5 +1,7 @@
 import logging
-from logging.handlers import RotatingFileHandler
+
+import sys
+
 from smslogger import settings
 
 
@@ -7,7 +9,7 @@ class Logger(object):
     def __init__(self):
         fmt = logging.Formatter(settings.LOGGING_FORMAT)
 
-        handler = RotatingFileHandler(settings.LOGGING_PATH, maxBytes=10 * 1024 * 1024, backupCount=5)
+        handler = logging.StreamHandler(sys.stdout)
         handler.setFormatter(fmt)
 
         self.logger = logging.getLogger()
