@@ -9,7 +9,8 @@ requires = [
     'txAMQP>=0.6.2',
     'enum>=0.4.6',
     'smpp.pdu>=0.3',
-    'psycopg2>=2.6.1'
+    'psycopg2>=2.6.1',
+    'redis',
 ]
 
 setup(

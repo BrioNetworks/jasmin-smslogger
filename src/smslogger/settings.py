@@ -19,7 +19,8 @@ AMQP_CONNECTION = {
 
 AMQP_SPECIFICATION = os.path.join(STATIC_DIR, 'amqp0-9-1.stripped.xml')
 
-PG_CONNECTION = 'dbname=storagesms host=localhost port=5432 user=postgres password=root'
+POSTGRES = {'dbname': 'storagesms', 'user': 'postgres', 'host': 'smsto.ru', 'port': 4004, 'password': 'pass'}
+REDIS = {'host': 'localhost', 'port': 6379, 'db': 0}
 
 FORMAT_TIMES = ('%Y-%m-%d %H:%M:%S.%f', '%Y-%m-%d %H:%M:%S', )
 
