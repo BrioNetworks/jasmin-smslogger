@@ -14,23 +14,23 @@ class BufferManager(object):
 
         self.buffer_size = settings.BUFFER_SIZE
 
-    def submit(self, *args, **kwargs):
-        self.redis.submit(*args, **kwargs)
+    def submit(self, message_id, fields):
+        self.redis.submit(message_id, fields)
 
         if self.redis.get_hash_len('delivery') >= self.buffer_size:
             self._write_buffer()
 
-    def submit_resp(self, *args, **kwargs):
-        self.redis.submit_resp(*args, **kwargs)
+    def submit_resp(self, message_id):
+        self.redis.submit_resp(message_id)
 
-    def delivery(self, *args, **kwargs):
-        self.redis.delivery(*args, **kwargs)
+    def delivery(self, message_id):
+        self.redis.delivery(message_id)
 
-    def get_operator(self, *args, **kwargs):
-        return self.pg.get_operator(*args, **kwargs)
+    def get_operator(self, key_find):
+        return self.pg.get_operator(key_find)
 
-    def get_source(self, *args, **kwargs):
-        return self.pg.get_source(*args, **kwargs)
+    def get_source(self, key_find):
+        return self.pg.get_source(key_find)
 
     def _write_buffer(self):
         columns, data = [], []
@@ -199,3 +199,4 @@ def test():
         'operator_id': operator,
         'source_id': source
     })
+
