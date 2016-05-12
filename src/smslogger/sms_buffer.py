@@ -147,7 +147,8 @@ class PostgresManager(object):
 
     @staticmethod
     def _get_buffer(data):
-        stdin = '\n'.join(['\t'.join(['' if value is None else '%s' % (value,) for value in item]) for item in data]) + '\n'
+        stdin = '\n'.join(
+            ['\t'.join(['' if value is None else '%s' % (value,) for value in item]) for item in data]) + '\n'
         return StringIO.StringIO(stdin)
 
 
