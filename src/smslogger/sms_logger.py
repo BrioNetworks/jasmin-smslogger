@@ -116,10 +116,12 @@ class SmsLogger(object):
 
                     pdu_count, short_message = get_multipart_message(pdu, short_message)
 
-                    submit_sm_bill = pickle.loads(headers['submit_sm_bill']) \
-                        if 'submit_sm_bill' in headers else None
-                    if not submit_sm_bill:
-                        logger.warning(u'empty submit_sm_bill in message %s' % (props['message-id'], ))
+                    submit_sm_bill = None
+                    if settings.USE_JASMIN:
+                        submit_sm_bill = pickle.loads(headers['submit_sm_bill']) \
+                            if 'submit_sm_bill' in headers else None
+                        if not submit_sm_bill:
+                            logger.warning(u'empty submit_sm_bill in message %s' % (props['message-id'], ))
 
                     rate, uid = 0, None
                     if submit_sm_bill:
