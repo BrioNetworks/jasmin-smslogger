@@ -28,12 +28,14 @@ POSTGRES = {
     'user': 'postgres',
     'host': 'localhost',
     'port': 5432,
-    'password': 'root'}
+    'password': 'root'
+}
 
 REDIS = {
     'host': 'localhost',
     'port': 6379,
-    'db': 0}
+    'db': 0
+}
 
 LOGGING_PATH = os.path.join(BASE_DIR, '../../smslogger.log')
 LOGGING_FORMAT = '[LINE:%(lineno)d]# %(levelname)-8s [%(asctime)s]  %(message)s'
