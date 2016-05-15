@@ -27,7 +27,6 @@ POSTGRES = {'dbname': 'storagesms', 'user': 'postgres', 'host': 'localhost', 'po
 
 REDIS = {'host': 'localhost', 'port': 6379, 'db': 0}
 
-FORMAT_TIMES = ('%Y-%m-%d %H:%M:%S.%f', '%Y-%m-%d %H:%M:%S', )
 LOGGING_PATH = os.path.join(BASE_DIR, '../../smslogger.log')
 LOGGING_FORMAT = '[LINE:%(lineno)d]# %(levelname)-8s [%(asctime)s]  %(message)s'
 LOGGING_LEVEL = logging.INFO

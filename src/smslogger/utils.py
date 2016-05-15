@@ -21,7 +21,7 @@ def decode_message(short_message, dc):
 
 
 def try_parsing_date(text):
-    for fmt in settings.FORMAT_TIMES:
+    for fmt in ('%Y-%m-%d %H:%M:%S.%f', '%Y-%m-%d %H:%M:%S', ):
         try:
             return datetime.strptime(text, fmt)
         except ValueError:
