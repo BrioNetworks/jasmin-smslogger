@@ -99,7 +99,13 @@ class SmsLogger(object):
                     chan.basic_ack(delivery_tag=msg.delivery_tag)
                     continue
 
-                if msg.routing_key[:10] == 'submit.sm.':
+                if msg.routing_key[:15] == 'submit.sm.resp.':
+                    try:
+                        self.buffer.submit_resp(props['message-id'])
+                    except Exception as e:
+                        logger.error(u'Exception in update submit response time, %s %s' % (msg.routing_key, e,))
+
+                elif msg.routing_key[:10] == 'submit.sm.':
                     headers = props['headers']
 
                     routed_cid = msg.routing_key[10:]
@@ -170,12 +176,6 @@ class SmsLogger(object):
                         })
                     except Exception as e:
                         logger.error(u'Exception in create new sms, %s %s' % (msg.routing_key, e,))
-
-                elif msg.routing_key[:15] == 'submit.sm.resp.':
-                    try:
-                        self.buffer.submit_resp(props['message-id'])
-                    except Exception as e:
-                        logger.error(u'Exception in update submit response time, %s %s' % (msg.routing_key, e,))
                 else:
                     logger.error(u'unknown route: %s' % (msg.routing_key,))
 
