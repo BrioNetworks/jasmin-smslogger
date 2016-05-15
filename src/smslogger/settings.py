@@ -5,9 +5,13 @@ import os
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 STATIC_DIR = os.path.join(BASE_DIR, 'static/')
 
-BUFFER_SIZE = 10
+ID = 1
 
 USE_JASMIN = False
+
+BUFFER_SIZE = 10000
+TTL_SUBMITS = 120.0
+INTERVAL_ASK_DEAD_SUBMITS = 100.0
 
 AMQP_CONNECTION = {
     'host': 'smsto.ru',
@@ -19,7 +23,7 @@ AMQP_CONNECTION = {
 # if USE_JASMIN, you can set '/etc/jasmin/resource/amqp0-9-1.xml'
 AMQP_SPECIFICATION = os.path.join(STATIC_DIR, 'amqp0-9-1.stripped.xml')
 
-POSTGRES = {'dbname': 'storagesms', 'user': 'postgres', 'host': 'smsto.ru', 'port': 4004, 'password': 'pass'}
+POSTGRES = {'dbname': 'storagesms', 'user': 'postgres', 'host': 'localhost', 'port': 5432, 'password': 'root'}
 
 REDIS = {'host': 'localhost', 'port': 6379, 'db': 0}
 

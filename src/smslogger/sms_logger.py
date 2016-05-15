@@ -37,7 +37,7 @@ class SmsLogger(object):
                           vhost=vhost,
                           spec=self.spec).connectTCP(host, port)
 
-        d.addCallback(self.gotConnection)
+        d.addCallback(self.got_connection)
         d.addErrback(self.whoops)
 
     def whoops(self, error):
@@ -46,7 +46,7 @@ class SmsLogger(object):
             reactor.stop()
 
     @inlineCallbacks
-    def gotConnection(self, conn):
+    def got_connection(self, conn):
         logger.info(u'Connected to broker')
 
         username = self.amqp_conn['user']
@@ -181,5 +181,7 @@ class SmsLogger(object):
 
         if reactor.running:
             reactor.stop()
+
+        self.buffer.close()
 
         logger.info(u'Shutdown')

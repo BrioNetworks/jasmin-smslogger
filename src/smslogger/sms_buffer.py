@@ -1,76 +1,117 @@
 import StringIO
 import datetime
-import psycopg2
-import redis
+from threading import Thread, Event
 
-from smslogger import settings
+import redis
+from psycopg2 import DatabaseError
+from psycopg2.pool import ThreadedConnectionPool
+
+from smslogger import settings, queries
+from smslogger.app_logger import logger
 
 
 class BufferManager(object):
 
     def __init__(self):
-        self.pg = PostgresManager()
-        self.redis = RedisManager()
+        self._pg = PostgresManager()
+        self._redis = RedisManager()
 
         self.buffer_size = settings.BUFFER_SIZE
 
-    def submit(self, message_id, fields):
-        self.redis.submit(message_id, fields)
+        self._stop = Event()
+        t = LoopingCall(self._stop, self.task_ttl_submit, settings.INTERVAL_ASK_DEAD_SUBMITS)
+        t.start()
 
-        if self.redis.get_hash_len('delivery') >= self.buffer_size:
-            self._write_buffer()
+    def task_ttl_submit(self):
+        logger.info("Call task find dead submits")
+
+        columns, data, message_keys = [], [], []
+
+        submits = self._redis.get_submits()
+        for message_id, message in submits.items():
+            submit = eval(message)
+
+            if not columns:
+                columns = [key for key in submit]
+
+            time_live = datetime.datetime.now() - submit['submit_time']
+
+            if time_live.total_seconds() >= settings.TTL_SUBMITS:
+                data.append(
+                    [submit[column] for column in columns]
+                )
+
+                message_keys.append(message_id)
+
+        if columns and data:
+            logger.info("Write dead submits")
+            self._pg.write_buffer(data, columns)
+            self._redis.clean_submits(message_keys)
+
+    def submit(self, message_id, fields):
+        self._redis.submit(message_id, fields)
 
     def submit_resp(self, message_id):
-        self.redis.submit_resp(message_id)
+        self._redis.submit_resp(message_id)
 
     def delivery(self, message_id):
-        self.redis.delivery(message_id)
+        self._redis.delivery(message_id)
+
+        if self._redis.get_deliveries_len() >= self.buffer_size:
+            logger.info("Write deliveries")
+            self._write_buffer()
 
     def get_operator(self, key_find):
-        return self.pg.get_operator(key_find)
+        return self._pg.get_operator(key_find)
 
     def get_source(self, key_find):
-        return self.pg.get_source(key_find)
+        return self._pg.get_source(key_find)
 
     def _write_buffer(self):
         columns, data = [], []
 
-        deliveries = self.redis.get_deliveries()
+        deliveries = self._redis.get_deliveries()
         for message_id, message in deliveries.items():
-            fields = eval(message)
+            delivery = eval(message)
 
             if not columns:
-                columns = [key for key in fields]
+                columns = [key for key in delivery]
 
             data.append(
-                [fields[column] for column in columns]
+                [delivery[column] for column in columns]
             )
         if columns and data:
-            self.pg.write_buffer(data, columns)
-            self.redis.clean_deliveries()
+            self._pg.write_buffer(data, columns)
+            self._redis.clean_deliveries()
+
+    def close(self):
+        self._pg.close()
+        self._stop.set()
 
 
 class RedisManager(object):
     def __init__(self):
         self.connection = redis.Redis(**settings.REDIS)
+        self.submit_hash_name = 'buffer:%s:submit' % (settings.ID, )
+        self.delivery_hash_name = 'buffer:%s:delivery' % (settings.ID, )
 
     def submit(self, message_id, fields):
-        self.connection.hset('submit', message_id, str(fields))
+        self.connection.hset(self.submit_hash_name, message_id, str(fields))
 
     def submit_resp(self, message_id):
         message = self.update_message(message_id, 'submit_response_time')
         if message:
-            self.connection.hset('submit', message_id, message)
+            self.connection.hset(self.submit_hash_name, message_id, message)
 
     def delivery(self, message_id):
         message = self.update_message(message_id, 'delivery_time')
         if message:
-            self.connection.hset('delivery', message_id, message)
-            self.connection.hdel('submit', message_id)
+            self.connection.hset(self.delivery_hash_name, message_id, message)
+            self.connection.hdel(self.submit_hash_name, message_id)
 
     def update_message(self, message_id, key):
         message = ''
-        data = self.connection.hget('submit', message_id)
+        data = self.connection.hget(self.submit_hash_name, message_id)
         if data:
             fields = eval(data)
             if key not in fields:
@@ -79,15 +120,18 @@ class RedisManager(object):
             message = str(fields)
         return message
 
-    def get_hash_len(self, hash_name):
-        return self.connection.hlen(hash_name)
+    def get_deliveries_len(self):
+        return self.connection.hlen(self.delivery_hash_name)
 
     def get_deliveries(self):
-        return self.connection.hgetall('delivery')
+        return self.connection.hgetall(self.delivery_hash_name)
+
+    def get_submits(self):
+        return self.connection.hgetall(self.submit_hash_name)
 
     def clean_deliveries(self):
         new_key = 'gc:hashes:%s' % (self.connection.incr('gc:index'), )
-        self.connection.rename('delivery', new_key)
+        self.connection.rename(self.delivery_hash_name, new_key)
         cursor = 0
         while True:
             cursor, hash_keys = self.connection.hscan(new_key, cursor, count=100)
@@ -96,29 +140,55 @@ class RedisManager(object):
             if cursor == 0:
                 break
 
+    def clean_submits(self, message_keys):
+        self.connection.hdel(self.submit_hash_name, *message_keys)
+
+
+def long_live_connection(func):
+    def wrapper(cls, *args, **kwargs):
+        try:
+            connection = cls.pool.getconn()
+            cursor = connection.cursor()
+            cursor.execute('SELECT 0')
+            cursor.close()
+            cls.pool.putconn(connection)
+        except DatabaseError:
+            cls.pool = cls.get_pool()
+        return func(cls, *args, **kwargs)
+    return wrapper
+
 
 class PostgresManager(object):
 
     def __init__(self):
-        self.connection = psycopg2.connect(**settings.POSTGRES)
+        self.pool = self.get_pool()
 
         self.operators = {}
         self.sources = {}
 
         self._load_references()
 
+    @staticmethod
+    def get_pool():
+        return ThreadedConnectionPool(1, 5, **settings.POSTGRES)
+
     def _load_references(self):
-        cursor = self.connection.cursor()
+        connection = self.pool.getconn()
+        cursor = connection.cursor()
+        self._load_operator(cursor)
+        self._load_sources(cursor)
+        cursor.close()
+        self.pool.putconn(connection)
 
-        cursor.execute('SELECT id, routed_cid FROM public.sms_operator')
-        for row in cursor:
-            self.operators[row[1]] = row[0]
-
-        cursor.execute('SELECT id, address FROM PUBLIC.sms_source')
+    def _load_sources(self, cursor):
+        cursor.execute(queries.SELECT_SOURCES)
         for row in cursor:
             self.sources[row[1]] = row[0]
 
-        cursor.close()
+    def _load_operator(self, cursor):
+        cursor.execute(queries.SELECT_OPERATORS)
+        for row in cursor:
+            self.operators[row[1]] = row[0]
 
     def get_operator(self, key_find):
         if key_find in self.operators:
@@ -128,22 +198,34 @@ class PostgresManager(object):
         else:
             raise ValueError('Not find default operator')
 
+    @long_live_connection
     def get_source(self, key_find):
         if key_find in self.sources:
             return self.sources[key_find]
         else:
-            cursor = self.connection.cursor()
-            cursor.execute('INSERT INTO public.sms_source (address) VALUES (%s) RETURNING id', (key_find,))
-            source = cursor.fetchone()
-            self.connection.commit()
-            cursor.close()
-            return source[0]
+            connection = self.pool.getconn()
+            cursor = connection.cursor()
 
+            cursor.execute(queries.SELECT_OR_INSERT_SOURCE, (key_find, key_find, key_find, ))
+            source = cursor.fetchone()
+            connection.commit()
+            cursor.close()
+            self.pool.putconn(connection)
+
+            self.sources[key_find] = source[0]
+            return self.sources[key_find]
+
+    @long_live_connection
     def write_buffer(self, data, columns):
         f = self._get_buffer(data)
-        cursor = self.connection.cursor()
-        cursor.copy_from(f, 'public.sms_sms', columns=columns)
-        self.connection.commit()
+        connection = self.pool.getconn()
+        cursor = connection.cursor()
+        cursor.copy_from(f, 'public.sms_sms', columns=columns, null="")
+        connection.commit()
+        self.pool.putconn(connection)
+
+    def close(self):
+        self.pool.closeall()
 
     @staticmethod
     def _get_buffer(data):
@@ -152,51 +234,15 @@ class PostgresManager(object):
         return StringIO.StringIO(stdin)
 
 
-def test():
-    b = BufferManager()
+class LoopingCall(Thread):
+    def __init__(self, event, func, interval, *args, **kwargs):
+        Thread.__init__(self)
+        self.stopped = event
+        self.func = func
+        self.interval = interval
+        self.args = args
+        self.kwargs = kwargs
 
-    b.redis.connection.flushdb()
-
-    operator = b.get_operator('bee')
-    source = b.get_source('test3')
-
-    mess_id = '9410fb2d'
-    b.submit(mess_id, {
-        'message_id': mess_id,
-        'message': 'hello',
-        'source_connector': 'smppsapi',
-        'routed_cid': 'test3',
-        'rate': 0,
-        'uid': None,
-        'destination': '1111111111',
-        'pdu_count': 1,
-        'status': 'ESME_ROK',
-        'create_time': datetime.datetime.now(),
-        'submit_time': datetime.datetime.now(),
-        'submit_response_time': None,
-        'delivery_time': None,
-        'operator_id': operator,
-        'source_id': source
-    })
-
-    b.submit_resp(mess_id)
-    b.delivery(mess_id)
-
-    b.submit(mess_id, {
-        'message_id': mess_id,
-        'message': 'hello',
-        'source_connector': 'smppsapi',
-        'routed_cid': 'test3',
-        'rate': 0,
-        'uid': None,
-        'destination': '1111111111',
-        'pdu_count': 1,
-        'status': 'ESME_ROK',
-        'create_time': datetime.datetime.now(),
-        'submit_time': datetime.datetime.now(),
-        'submit_response_time': None,
-        'delivery_time': None,
-        'operator_id': operator,
-        'source_id': source
-    })
-
+    def run(self):
+        while not self.stopped.wait(self.interval):
+            self.func(*self.args, **self.kwargs)
