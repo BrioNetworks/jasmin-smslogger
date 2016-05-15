@@ -23,9 +23,17 @@ AMQP_CONNECTION = {
 # if USE_JASMIN, you can set '/etc/jasmin/resource/amqp0-9-1.xml'
 AMQP_SPECIFICATION = os.path.join(STATIC_DIR, 'amqp0-9-1.stripped.xml')
 
-POSTGRES = {'dbname': 'storagesms', 'user': 'postgres', 'host': 'localhost', 'port': 5432, 'password': 'root'}
+POSTGRES = {
+    'dbname': 'storagesms',
+    'user': 'postgres',
+    'host': 'localhost',
+    'port': 5432,
+    'password': 'root'}
 
-REDIS = {'host': 'localhost', 'port': 6379, 'db': 0}
+REDIS = {
+    'host': 'localhost',
+    'port': 6379,
+    'db': 0}
 
 LOGGING_PATH = os.path.join(BASE_DIR, '../../smslogger.log')
 LOGGING_FORMAT = '[LINE:%(lineno)d]# %(levelname)-8s [%(asctime)s]  %(message)s'
