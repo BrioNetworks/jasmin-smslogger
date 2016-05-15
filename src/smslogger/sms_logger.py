@@ -109,16 +109,10 @@ class SmsLogger(object):
                     headers = props['headers']
 
                     routed_cid = msg.routing_key[10:]
-
-                    source_connector = headers['source_connector'] \
-                        if 'source_connector' in headers else None
-                    if not source_connector:
-                        logger.warning(u'empty source_connector in message %s' % (props['message-id'], ))
-
-                    short_message = pdu.params['short_message'] \
-                        if 'short_message' in pdu.params else None
-                    if not short_message:
-                        logger.warning(u'empty short_message in message %s' % (props['message-id'], ))
+                    source_connector = headers['source_connector']
+                    short_message = pdu.params['short_message']
+                    source_addr = pdu.params['source_addr']
+                    destination_addr = pdu.params['destination_addr']
 
                     pdu_count, short_message = get_multipart_message(pdu, short_message)
 
@@ -141,16 +135,6 @@ class SmsLogger(object):
 
                     # Преобразуем create_at в локальное время
                     create_time = utc_to_local(props['headers']['created_at'])
-
-                    source_addr = pdu.params['source_addr'] \
-                        if 'source_addr' in pdu.params else None
-                    if not source_addr:
-                        logger.warning(u'empty source_addr in message %s' % (props['message-id'], ))
-
-                    destination_addr = pdu.params['destination_addr'] \
-                        if 'destination_addr' in pdu.params else None
-                    if not destination_addr:
-                        logger.warning(u'empty destination_addr in message %s' % (props['message-id'], ))
 
                     # Создаем новую запись
                     try:
