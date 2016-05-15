@@ -68,7 +68,7 @@ class BufferManager(object):
         return self._pg.get_source(key_find)
 
     def _write_buffer(self):
-        columns, data = [], []
+        columns, data, message_keys = [], [], []
 
         deliveries = self._redis.get_deliveries()
         for message_id, message in deliveries.items():
@@ -80,9 +80,12 @@ class BufferManager(object):
             data.append(
                 [delivery[column] for column in columns]
             )
+
+            message_keys.append(message_id)
+
         if columns and data:
             self._pg.write_buffer(data, columns)
-            self._redis.clean_deliveries()
+            self._redis.clean_deliveries(message_keys)
 
     def close(self):
         self._pg.close()
@@ -129,19 +132,17 @@ class RedisManager(object):
     def get_submits(self):
         return self.connection.hgetall(self.submit_hash_name)
 
-    def clean_deliveries(self):
-        new_key = 'gc:hashes:%s' % (self.connection.incr('gc:index'), )
-        self.connection.rename(self.delivery_hash_name, new_key)
-        cursor = 0
-        while True:
-            cursor, hash_keys = self.connection.hscan(new_key, cursor, count=100)
-            if len(hash_keys) > 0:
-                self.connection.hdel(new_key, *hash_keys.keys())
-            if cursor == 0:
-                break
+    def clean_deliveries(self, message_keys):
+        self._clean_hkeys(self.delivery_hash_name, message_keys)
 
     def clean_submits(self, message_keys):
-        self.connection.hdel(self.submit_hash_name, *message_keys)
+        self._clean_hkeys(self.submit_hash_name, message_keys)
+
+    def _clean_hkeys(self, hash_name, message_keys):
+        chunks_num = 100
+        chunks = [message_keys[i:i+chunks_num] for i in range(0, len(message_keys), chunks_num)]
+        for chunk in chunks:
+            self.connection.hdel(hash_name, *chunk)
 
 
 def long_live_connection(func):
