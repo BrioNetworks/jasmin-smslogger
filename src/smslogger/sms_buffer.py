@@ -150,7 +150,7 @@ def long_live_connection(func):
         try:
             connection = cls.pool.getconn()
             cursor = connection.cursor()
-            cursor.execute('SELECT 0')
+            cursor.execute(settings.CHECK_CONNECTION)
             cursor.close()
             cls.pool.putconn(connection)
         except DatabaseError:
@@ -199,22 +199,26 @@ class PostgresManager(object):
         else:
             raise ValueError('Not find default operator')
 
-    @long_live_connection
     def get_source(self, key_find):
         if key_find in self.sources:
             return self.sources[key_find]
         else:
-            connection = self.pool.getconn()
-            cursor = connection.cursor()
+            source = self._get_source_db(key_find)
+            self.sources[key_find] = source
+            return source
 
-            cursor.execute(queries.SELECT_OR_INSERT_SOURCE, (key_find, key_find, key_find, ))
-            source = cursor.fetchone()
-            connection.commit()
-            cursor.close()
-            self.pool.putconn(connection)
+    @long_live_connection
+    def _get_source_db(self, key_find):
+        connection = self.pool.getconn()
+        cursor = connection.cursor()
 
-            self.sources[key_find] = source[0]
-            return self.sources[key_find]
+        cursor.execute(queries.SELECT_OR_INSERT_SOURCE, (key_find, key_find, key_find, ))
+        source = cursor.fetchone()
+        connection.commit()
+        cursor.close()
+        self.pool.putconn(connection)
+
+        return source[0]
 
     @long_live_connection
     def write_buffer(self, data, columns):
