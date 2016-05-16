@@ -6,10 +6,10 @@ from smslogger import settings, queries
 
 class PoolManager(object):
     def __init__(self):
-        self.pool = self.new_pool()
+        self.pool = self._new_pool()
 
     @staticmethod
-    def new_pool():
+    def _new_pool():
         return ThreadedConnectionPool(minconn=2, maxconn=5, **settings.POSTGRES)
 
     @contextmanager
@@ -20,7 +20,7 @@ class PoolManager(object):
                 cur.execute(queries.CHECK_CONNECTION)
         except DatabaseError:
             self.pool.closeall()
-            self.pool = self.new_pool()
+            self.pool = self._new_pool()
             conn = self.pool.getconn()
         try:
             with conn.cursor() as cur:
