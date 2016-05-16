@@ -150,7 +150,7 @@ def long_live_connection(func):
         try:
             connection = cls.pool.getconn()
             cursor = connection.cursor()
-            cursor.execute(settings.CHECK_CONNECTION)
+            cursor.execute(queries.CHECK_CONNECTION)
             cursor.close()
             cls.pool.putconn(connection)
         except DatabaseError:
