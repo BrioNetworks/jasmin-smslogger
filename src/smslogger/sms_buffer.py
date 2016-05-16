@@ -1,13 +1,11 @@
 import StringIO
 import datetime
-from threading import Thread, Event
-
 import redis
-from psycopg2 import DatabaseError
-from psycopg2.pool import ThreadedConnectionPool
 
+from threading import Thread, Event
 from smslogger import settings, queries
 from smslogger.app_logger import logger
+from smslogger.pg_pool import pool
 
 
 class BufferManager(object):
@@ -88,7 +86,7 @@ class BufferManager(object):
             self._redis.clean_deliveries(message_keys)
 
     def close(self):
-        self._pg.close()
+        pool.close_pool()
         self._stop.set()
 
 
@@ -145,41 +143,17 @@ class RedisManager(object):
             self.connection.hdel(hash_name, *chunk)
 
 
-def long_live_connection(func):
-    def wrapper(cls, *args, **kwargs):
-        try:
-            connection = cls.pool.getconn()
-            cursor = connection.cursor()
-            cursor.execute(queries.CHECK_CONNECTION)
-            cursor.close()
-            cls.pool.putconn(connection)
-        except DatabaseError:
-            cls.pool = cls.get_pool()
-        return func(cls, *args, **kwargs)
-    return wrapper
-
-
 class PostgresManager(object):
-
     def __init__(self):
-        self.pool = self.get_pool()
-
         self.operators = {}
         self.sources = {}
 
         self._load_references()
 
-    @staticmethod
-    def get_pool():
-        return ThreadedConnectionPool(1, 5, **settings.POSTGRES)
-
     def _load_references(self):
-        connection = self.pool.getconn()
-        cursor = connection.cursor()
-        self._load_operator(cursor)
-        self._load_sources(cursor)
-        cursor.close()
-        self.pool.putconn(connection)
+        with pool.db_cursor() as cursor:
+            self._load_operator(cursor)
+            self._load_sources(cursor)
 
     def _load_sources(self, cursor):
         cursor.execute(queries.SELECT_SOURCES)
@@ -203,34 +177,16 @@ class PostgresManager(object):
         if key_find in self.sources:
             return self.sources[key_find]
         else:
-            source = self._get_source_db(key_find)
-            self.sources[key_find] = source
-            return source
+            with pool.db_cursor() as cursor:
+                cursor.execute(queries.SELECT_OR_INSERT_SOURCE, (key_find, key_find, key_find, ))
+                source = cursor.fetchone()
+                self.sources[key_find] = source
+                return source
 
-    @long_live_connection
-    def _get_source_db(self, key_find):
-        connection = self.pool.getconn()
-        cursor = connection.cursor()
-
-        cursor.execute(queries.SELECT_OR_INSERT_SOURCE, (key_find, key_find, key_find, ))
-        source = cursor.fetchone()
-        connection.commit()
-        cursor.close()
-        self.pool.putconn(connection)
-
-        return source[0]
-
-    @long_live_connection
     def write_buffer(self, data, columns):
         f = self._get_buffer(data)
-        connection = self.pool.getconn()
-        cursor = connection.cursor()
-        cursor.copy_from(f, 'public.sms_sms', columns=columns, null="")
-        connection.commit()
-        self.pool.putconn(connection)
-
-    def close(self):
-        self.pool.closeall()
+        with pool.db_cursor() as cursor:
+            cursor.copy_from(f, 'public.sms_sms', columns=columns, null="")
 
     @staticmethod
     def _get_buffer(data):
