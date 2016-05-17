@@ -118,7 +118,7 @@ class RedisManager(object):
         if data:
             fields = eval(data)
             if key not in fields:
-                raise ValueError('Invalid data in redis hash %s' % (data,))
+                raise ValueError('Redis: not find in data %s field %s' % (data, key, ))
             fields[key] = datetime.datetime.now()
             message = str(fields)
         return message
