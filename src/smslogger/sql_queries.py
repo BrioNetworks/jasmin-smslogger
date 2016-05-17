@@ -1,3 +1,4 @@
+# -*- coding: utf-8 -*-
 CHECK_CONNECTION = 'SELECT 0'
 
 SELECT_SOURCES = 'SELECT id, address FROM PUBLIC.sms_source;'

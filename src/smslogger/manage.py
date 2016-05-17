@@ -1,3 +1,4 @@
+# -*- coding: utf-8 -*-
 from twisted.internet import reactor
 from smslogger.sms_logger import SmsLogger
 

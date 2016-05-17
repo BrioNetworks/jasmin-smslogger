@@ -47,13 +47,13 @@ class SmsLogger(object):
 
     @inlineCallbacks
     def got_connection(self, conn):
-        logger.info(u'Connected to broker')
+        logger.info('Connected to broker')
 
         username = self.amqp_conn['user']
         password = self.amqp_conn['password']
         yield conn.start({"LOGIN": username, "PASSWORD": password})
 
-        logger.info(u'Authenticated. Ready to receive messages')
+        logger.info('Authenticated. Ready to receive messages')
         chan = yield conn.channel(1)
         yield chan.channel_open()
 
@@ -75,7 +75,7 @@ class SmsLogger(object):
             try:
                 msg = yield queue.get()
             except Closed:
-                logger.info(u'Connection is closed!')
+                logger.info('Connection is closed!')
                 break
 
             props = msg.content.properties
@@ -85,7 +85,7 @@ class SmsLogger(object):
                 try:
                     self.buffer.delivery(message_id)
                 except Exception as e:
-                    logger.error(u'Exception in update delivery time, %s %s' % (msg.routing_key, e,))
+                    logger.error('Exception in update delivery time, %s %s' % (msg.routing_key, e,))
             else:
                 try:
                     # no need Jasmin
@@ -93,7 +93,7 @@ class SmsLogger(object):
                     pdu = pickle.loads(body)
                 except Exception as e:
                     logger.error(
-                        u'Exception in parse pdu %s: %s\nContent body: %s' % (msg.routing_key, e, msg.content.body,))
+                        'Exception in parse pdu %s: %s\nContent body: %s' % (msg.routing_key, e, msg.content.body,))
 
                 if not pdu:
                     chan.basic_ack(delivery_tag=msg.delivery_tag)
@@ -103,7 +103,7 @@ class SmsLogger(object):
                     try:
                         self.buffer.submit_resp(props['message-id'])
                     except Exception as e:
-                        logger.error(u'Exception in update submit response time, %s %s' % (msg.routing_key, e,))
+                        logger.error('Exception in update submit response time, %s %s' % (msg.routing_key, e,))
 
                 elif msg.routing_key[:10] == 'submit.sm.':
                     headers = props['headers']
@@ -121,7 +121,7 @@ class SmsLogger(object):
                         submit_sm_bill = pickle.loads(headers['submit_sm_bill']) \
                             if 'submit_sm_bill' in headers else None
                         if not submit_sm_bill:
-                            logger.warning(u'empty submit_sm_bill in message %s' % (props['message-id'], ))
+                            logger.warning('empty submit_sm_bill in message %s' % (props['message-id'], ))
 
                     rate, uid = 0, None
                     if submit_sm_bill:
@@ -159,9 +159,9 @@ class SmsLogger(object):
                             'source_id': source_id
                         })
                     except Exception as e:
-                        logger.error(u'Exception in create new sms, %s %s' % (msg.routing_key, e,))
+                        logger.error('Exception in create new sms, %s %s' % (msg.routing_key, e,))
                 else:
-                    logger.error(u'unknown route: %s' % (msg.routing_key,))
+                    logger.error('unknown route: %s' % (msg.routing_key,))
 
             chan.basic_ack(delivery_tag=msg.delivery_tag)
 
@@ -170,4 +170,4 @@ class SmsLogger(object):
 
         self.buffer.close()
 
-        logger.info(u'Shutdown')
+        logger.info('Shutdown')

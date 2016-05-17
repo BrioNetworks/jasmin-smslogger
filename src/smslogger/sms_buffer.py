@@ -1,3 +1,4 @@
+# -*- coding: utf-8 -*-
 import StringIO
 import datetime
 import redis
@@ -6,6 +7,7 @@ from threading import Thread, Event
 from smslogger import settings, queries
 from smslogger.app_logger import logger
 from smslogger.pg_pool import pool
+from psycopg2 import DatabaseError
 
 
 class BufferManager(object):
@@ -185,9 +187,12 @@ class PostgresManager(object):
         return self.sources[key_find]
 
     def write_buffer(self, data, columns):
-        f = self._get_buffer(data)
-        with pool.db_cursor() as cursor:
-            cursor.copy_from(f, 'public.sms_sms', columns=columns, null='')
+        try:
+            f = self._get_buffer(data)
+            with pool.db_cursor() as cursor:
+                cursor.copy_from(f, 'public.sms_sms', columns=columns, null='')
+        except DatabaseError as e:
+            logger.error('Exception in write_buffer: %s' % (e, ))
 
     @staticmethod
     def _get_buffer(data):
