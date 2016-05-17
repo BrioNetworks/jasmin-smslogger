@@ -168,25 +168,26 @@ class PostgresManager(object):
     def get_operator(self, key_find):
         if key_find in self.operators:
             return self.operators[key_find]
-        elif None in self.operators:
-            return self.operators[None]
         else:
-            raise ValueError('Not find default operator')
+            if None not in self.operators:
+                with pool.db_cursor() as cursor:
+                    cursor.execute(queries.INSERT_UNKNOWN_OPERATOR, (None, 'Unknown', ))
+                    operator = cursor.fetchone()
+                    self.operators[None] = operator[0]
+            return self.operators[None]
 
     def get_source(self, key_find):
-        if key_find in self.sources:
-            return self.sources[key_find]
-        else:
+        if key_find not in self.sources:
             with pool.db_cursor() as cursor:
                 cursor.execute(queries.SELECT_OR_INSERT_SOURCE, (key_find, key_find, key_find, ))
                 source = cursor.fetchone()
-                self.sources[key_find] = source
-                return source
+                self.sources[key_find] = source[0]
+        return self.sources[key_find]
 
     def write_buffer(self, data, columns):
         f = self._get_buffer(data)
         with pool.db_cursor() as cursor:
-            cursor.copy_from(f, 'public.sms_sms', columns=columns, null="")
+            cursor.copy_from(f, 'public.sms_sms', columns=columns, null='')
 
     @staticmethod
     def _get_buffer(data):
