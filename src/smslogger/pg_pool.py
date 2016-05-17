@@ -33,7 +33,7 @@ class PoolManager(object):
         finally:
             self.pool.putconn(conn)
 
-    def close_pool(self):
+    def close(self):
         self.pool.closeall()
 
 pool = PoolManager()

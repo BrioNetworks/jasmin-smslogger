@@ -88,7 +88,7 @@ class BufferManager(object):
             self._redis.clean_deliveries(message_keys)
 
     def close(self):
-        pool.close_pool()
+        pool.close()
         self._stop.set()
 
 
