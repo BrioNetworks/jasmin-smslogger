@@ -3,6 +3,7 @@ import redis as r
 from redis.exceptions import ConnectionError
 
 from smslogger import settings
+from smslogger.app_logger import logger
 
 
 class RedisConnection(object):
@@ -15,6 +16,7 @@ class RedisConnection(object):
             self.conn.ping()
             return self.conn
         except ConnectionError:
+            logger.warning("Redis lost connection")
             return self.connection
 
 redis = RedisConnection()
