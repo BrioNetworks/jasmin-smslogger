@@ -1,13 +1,13 @@
 # -*- coding: utf-8 -*-
 import StringIO
 import datetime
-import redis
 
 from threading import Thread, Event
 from smslogger import settings, queries
 from smslogger.app_logger import logger
 from smslogger.pg_pool import pool
 from psycopg2 import DatabaseError
+from redis_connection import redis
 
 
 class BufferManager(object):
@@ -94,27 +94,26 @@ class BufferManager(object):
 
 class RedisManager(object):
     def __init__(self):
-        self.connection = redis.Redis(**settings.REDIS)
         self.submit_hash_name = 'buffer:%s:submit' % (settings.ID, )
         self.delivery_hash_name = 'buffer:%s:delivery' % (settings.ID, )
 
     def submit(self, message_id, fields):
-        self.connection.hset(self.submit_hash_name, message_id, str(fields))
+        redis.connection.hset(self.submit_hash_name, message_id, str(fields))
 
     def submit_resp(self, message_id):
         message = self.update_message(message_id, 'submit_response_time')
         if message:
-            self.connection.hset(self.submit_hash_name, message_id, message)
+            redis.connection.hset(self.submit_hash_name, message_id, message)
 
     def delivery(self, message_id):
         message = self.update_message(message_id, 'delivery_time')
         if message:
-            self.connection.hset(self.delivery_hash_name, message_id, message)
-            self.connection.hdel(self.submit_hash_name, message_id)
+            redis.connection.hset(self.delivery_hash_name, message_id, message)
+            redis.connection.hdel(self.submit_hash_name, message_id)
 
     def update_message(self, message_id, key):
         message = ''
-        data = self.connection.hget(self.submit_hash_name, message_id)
+        data = redis.connection.hget(self.submit_hash_name, message_id)
         if data:
             fields = eval(data)
             if key not in fields:
@@ -124,13 +123,13 @@ class RedisManager(object):
         return message
 
     def get_deliveries_len(self):
-        return self.connection.hlen(self.delivery_hash_name)
+        return redis.connection.hlen(self.delivery_hash_name)
 
     def get_deliveries(self):
-        return self.connection.hgetall(self.delivery_hash_name)
+        return redis.connection.hgetall(self.delivery_hash_name)
 
     def get_submits(self):
-        return self.connection.hgetall(self.submit_hash_name)
+        return redis.connection.hgetall(self.submit_hash_name)
 
     def clean_deliveries(self, message_keys):
         self._clean_hkeys(self.delivery_hash_name, message_keys)
@@ -138,11 +137,12 @@ class RedisManager(object):
     def clean_submits(self, message_keys):
         self._clean_hkeys(self.submit_hash_name, message_keys)
 
-    def _clean_hkeys(self, hash_name, message_keys):
+    @staticmethod
+    def _clean_hkeys(hash_name, message_keys):
         chunks_num = 100
         chunks = [message_keys[i:i+chunks_num] for i in range(0, len(message_keys), chunks_num)]
         for chunk in chunks:
-            self.connection.hdel(hash_name, *chunk)
+            redis.connection.hdel(hash_name, *chunk)
 
 
 class PostgresManager(object):
