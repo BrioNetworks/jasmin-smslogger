@@ -3,6 +3,9 @@ import StringIO
 import datetime
 
 from threading import Thread, Event
+
+import re
+
 from smslogger import settings, queries
 from smslogger.app_logger import logger
 from smslogger.pg_pool import pool
@@ -84,7 +87,12 @@ class BufferManager(object):
             message_keys.append(message_id)
 
         if columns and data:
-            self._pg.write_buffer(data, columns)
+            is_write = self._pg.write_buffer(data, columns)
+            if not is_write:
+                logger.info('Try write buffer line to line')
+                for item in data:
+                    self._pg.write_buffer([item], columns)
+
             self._redis.clean_deliveries(message_keys)
 
     def close(self):
@@ -191,13 +199,16 @@ class PostgresManager(object):
             f = self._get_buffer(data)
             with pool.db_cursor() as cursor:
                 cursor.copy_from(f, 'public.sms_sms', columns=columns, null='')
-        except DatabaseError as e:
+            return True
+        except Exception as e:
             logger.error('Exception in write_buffer: %s' % (e, ))
+            return False
 
     @staticmethod
     def _get_buffer(data):
         stdin = '\n'.join(
-            ['\t'.join(['' if field is None else '%s' % (field,) for field in message]) for message in data]) + '\n'
+            ['\t'.join(['' if field is None else ('%s' % (field,)).decode('utf-8', 'replace') for field in message])
+             for message in data]) + '\n'
         return StringIO.StringIO(stdin)
 
 
