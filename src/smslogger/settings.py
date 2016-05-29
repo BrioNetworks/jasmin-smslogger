@@ -37,6 +37,13 @@ REDIS = {
     'db': 0
 }
 
-LOGGING_PATH = os.path.join(BASE_DIR, '../../smslogger.log')
+# LOGGING_PATH = os.path.join(BASE_DIR, '../../smslogger.log')
 LOGGING_FORMAT = '[LINE:%(lineno)d]# %(levelname)-8s [%(asctime)s]  %(message)s'
 LOGGING_LEVEL = logging.INFO
+
+
+# Override settings on config/settings.py
+SETTINGS_OVERRIDES = '/etc/smslogger/config/settings.py'
+
+if SETTINGS_OVERRIDES is not None and os.path.exists(SETTINGS_OVERRIDES):
+    exec open(SETTINGS_OVERRIDES) in locals()

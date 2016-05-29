@@ -1,8 +1,11 @@
 #!/usr/bin/env python
 from setuptools import setup, find_packages
 
+import os
 import sys
 sys.path.insert(0, 'src')
+
+BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 
 requires = [
     'Twisted>=16.1.1',
@@ -31,5 +34,8 @@ setup(
         'console_scripts': [
             'smslogger = smslogger.manage:main',
         ]
-    }
+    },
+    data_files=[
+        ('/etc/smslogger/config', [os.path.join(BASE_DIR, 'config/settings.py')])
+    ]
 )
