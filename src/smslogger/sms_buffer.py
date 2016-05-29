@@ -4,12 +4,9 @@ import datetime
 
 from threading import Thread, Event
 
-import re
-
 from smslogger import settings, queries
 from smslogger.app_logger import logger
 from smslogger.pg_pool import pool
-from psycopg2 import DatabaseError
 from redis_connection import redis
 
 
