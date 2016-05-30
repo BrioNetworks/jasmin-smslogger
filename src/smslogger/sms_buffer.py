@@ -198,7 +198,7 @@ class PostgresManager(object):
                 cursor.copy_from(f, 'public.sms_sms', columns=columns, null='')
             return True
         except Exception as e:
-            logger.error('Exception in write_buffer: %s' % (e, ))
+            logger.error('Exception in write_buffer: %s, with data %s' % (e, data))
             return False
 
     @staticmethod
