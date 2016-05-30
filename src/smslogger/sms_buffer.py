@@ -204,7 +204,7 @@ class PostgresManager(object):
     @staticmethod
     def _get_buffer(data):
         stdin = '\n'.join(
-            ['\t'.join(['' if field is None else ('%s' % (field,)).decode('utf-8', 'replace') for field in message])
+            ['\t'.join(['' if field is None else ('%s' % (field,)).encode('utf-8', 'replace') for field in message])
              for message in data]) + '\n'
         return StringIO.StringIO(stdin)
 
