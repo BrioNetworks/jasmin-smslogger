@@ -198,13 +198,13 @@ class PostgresManager(object):
                 cursor.copy_from(f, 'public.sms_sms', columns=columns, null='')
             return True
         except Exception as e:
-            logger.error('Exception in write_buffer: %s' % (e, ))
+            logger.error('Exception in write_buffer: %s, with data %s' % (e, data))
             return False
 
     @staticmethod
     def _get_buffer(data):
         stdin = '\n'.join(
-            ['\t'.join(['' if field is None else ('%s' % (field,)).decode('utf-8', 'replace') for field in message])
+            ['\t'.join(['' if field is None else ('%s' % (field,)).encode('utf-8', 'replace') for field in message])
              for message in data]) + '\n'
         return StringIO.StringIO(stdin)
 
