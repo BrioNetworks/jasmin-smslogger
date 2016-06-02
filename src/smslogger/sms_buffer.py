@@ -19,8 +19,14 @@ class BufferManager(object):
         self.buffer_size = settings.BUFFER_SIZE
 
         self._stop = Event()
-        t = LoopingCall(self._stop, self._task_find_dead_submits, settings.INTERVAL_ASK_DEAD_SUBMITS)
+        t = LoopingCall(self._stop, self._try_task_find_dead_submits, settings.INTERVAL_ASK_DEAD_SUBMITS)
         t.start()
+
+    def _try_task_find_dead_submits(self):
+        try:
+            self._task_find_dead_submits()
+        except Exception as e:
+            logger.error('Exception in find dead submits: %s' % (e, ))
 
     def _task_find_dead_submits(self):
         logger.info("Call task find dead submits")

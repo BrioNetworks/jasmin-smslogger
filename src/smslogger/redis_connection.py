@@ -18,6 +18,8 @@ class RedisConnection(object):
         except ConnectionError:
             logger.warning("Redis lost connection")
             return self.connection
+        except RuntimeError:
+            logger.error("Fail in restoring redis connection")
+            return None
 
 redis = RedisConnection()
-
