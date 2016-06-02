@@ -128,10 +128,14 @@ class SmsLogger(object):
                         rate = submit_sm_bill.getTotalAmounts() * pdu_count
                         uid = submit_sm_bill.user.uid
 
+                    logger.info('Message before decode %s' % (short_message,))
+
                     # Преобразуем сообщение
                     if 'data_coding' in pdu.params \
                             and pdu.params['data_coding'] is not None:
                         short_message = decode_message(short_message, pdu.params['data_coding'])
+
+                    logger.info('Message after decode %s' % (short_message,))
 
                     # Преобразуем create_at в локальное время
                     create_time = utc_to_local(props['headers']['created_at'])
