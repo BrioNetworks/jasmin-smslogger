@@ -51,7 +51,12 @@ class BufferManager(object):
 
         if columns and data:
             logger.info("Write dead submits")
-            self._pg.write_buffer(data, columns)
+            is_write = self._pg.write_buffer(data, columns)
+            if not is_write:
+                logger.info('Try write dead submit line to line')
+                for item in data:
+                    self._pg.write_buffer([item], columns)
+
             self._redis.clean_submits(message_keys)
 
     def submit(self, message_id, fields):
@@ -210,7 +215,7 @@ class PostgresManager(object):
     @staticmethod
     def _get_buffer(data):
         stdin = '\n'.join(
-            ['\t'.join(['' if field is None else ('%s' % (field,)).encode('utf-8', 'replace') for field in message])
+            ['\t'.join(['' if field is None else '%s' % (field,) for field in message])
              for message in data]) + '\n'
         return StringIO.StringIO(stdin)
 
