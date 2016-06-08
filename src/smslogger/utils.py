@@ -4,10 +4,8 @@ from datetime import datetime, timedelta
 from smslogger import settings
 
 if settings.USE_JASMIN:
-    from jasmin.vendor.enum import EnumValue
     from jasmin.vendor.smpp.pdu.pdu_types import DataCoding
 else:
-    from enum import EnumValue
     from smpp.pdu.pdu_types import DataCoding
 
 
