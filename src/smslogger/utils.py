@@ -4,21 +4,19 @@ from datetime import datetime, timedelta
 from smslogger import settings
 
 if settings.USE_JASMIN:
-    from jasmin.vendor.enum import EnumValue
     from jasmin.vendor.smpp.pdu.pdu_types import DataCoding
 else:
-    from enum import EnumValue
     from smpp.pdu.pdu_types import DataCoding
 
 
 def decode_message(short_message, dc):
     # UCS2 or UnicodeFlashSMS
     if (isinstance(dc, int) and dc == 8) \
-            or (isinstance(dc, DataCoding) and str(dc.schemeData) == 'UCS2') \
-            or (isinstance(dc.schemeData, EnumValue) and dc.schemeData.index == 0) \
-            or dc.schemeData == 24:
-        short_message = short_message.decode('utf_16_be', 'ignore')
-    return short_message
+            or (isinstance(dc, DataCoding) and (str(dc.schemeData) == 'UCS2' or dc.schemeData == 24)):
+        short_message = short_message.decode('utf-16-be', 'ignore')
+    else:
+        short_message = short_message.decode('utf-8', 'ignore')
+    return short_message.encode('utf-8')
 
 
 def try_parsing_date(text):

@@ -1,11 +1,14 @@
 #!/usr/bin/env python
 from setuptools import setup, find_packages
+from os.path import expanduser, join
 
 import os
 import sys
 sys.path.insert(0, 'src')
 
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
+
+CONFIG_PATH = join(expanduser('~'), '.config/smslogger')
 
 requires = [
     'Twisted>=16.1.1',
@@ -36,6 +39,6 @@ setup(
         ]
     },
     data_files=[
-        ('/etc/smslogger/config', [os.path.join(BASE_DIR, 'config/settings.py')])
+        (CONFIG_PATH, [os.path.join(BASE_DIR, 'config/settings.py')])
     ]
 )
