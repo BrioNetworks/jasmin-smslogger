@@ -43,7 +43,7 @@ LOGGING_LEVEL = logging.INFO
 
 
 # Override settings on config/settings.py
-SETTINGS_OVERRIDES = '/etc/smslogger/config/settings.py'
+# SETTINGS_OVERRIDES = '/etc/smslogger/config/settings.py'
 
-if SETTINGS_OVERRIDES is not None and os.path.exists(SETTINGS_OVERRIDES):
-    exec open(SETTINGS_OVERRIDES) in locals()
+# if SETTINGS_OVERRIDES is not None and os.path.exists(SETTINGS_OVERRIDES):
+#    exec open(SETTINGS_OVERRIDES) in locals()
