@@ -60,7 +60,7 @@ class SmsLogger(object):
         queue_name = 'sms_logger_queue'
         queue_tag = 'sms_logger'
 
-        yield chan.queue_declare(queue=queue_name)
+        yield chan.queue_declare(queue=queue_name, auto_delete=True)
 
         # Привязка к submit.sm.*, submit.sm.resp.*, dlr_thrower.* маршрутам
         yield chan.queue_bind(queue=queue_name, exchange='messaging', routing_key='submit.sm.*')
