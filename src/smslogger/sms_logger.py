@@ -60,14 +60,14 @@ class SmsLogger(object):
         queue_name = 'sms_logger_queue'
         queue_tag = 'sms_logger'
 
-        yield chan.queue_declare(queue=queue_name)
+        yield chan.queue_declare(queue=queue_name, auto_delete=True)
 
         # Привязка к submit.sm.*, submit.sm.resp.*, dlr_thrower.* маршрутам
         yield chan.queue_bind(queue=queue_name, exchange='messaging', routing_key='submit.sm.*')
         yield chan.queue_bind(queue=queue_name, exchange='messaging', routing_key='submit.sm.resp.*')
         yield chan.queue_bind(queue=queue_name, exchange='messaging', routing_key='dlr_thrower.*')
 
-        yield chan.basic_consume(queue=queue_name, no_ack=False, consumer_tag=queue_tag)
+        yield chan.basic_consume(queue=queue_name, no_ack=True, consumer_tag=queue_tag)
         queue = yield conn.queue(queue_tag)
 
         # Ожидаем сообщения
@@ -163,7 +163,7 @@ class SmsLogger(object):
                 else:
                     logger.error('unknown route: %s' % (msg.routing_key,))
 
-            chan.basic_ack(delivery_tag=msg.delivery_tag)
+            # chan.basic_ack(delivery_tag=msg.delivery_tag)
 
         if reactor.running:
             reactor.stop()
